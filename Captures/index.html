@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RC Console</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12161A">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#12161A;
+    --panel:#1B2126;
+    --panel-raised:#212832;
+    --line:#2C343C;
+    --text:#E9E4DA;
+    --muted:#7C8792;
+    --amber:#E8B34A;
+    --amber-dim:#5A4726;
+    --cyan:#4FC3E8;
+    --cyan-dim:#204450;
+    --red:#E8584A;
+    --red-dim:#5A2620;
+    --green:#5FD08A;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; height:100%; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow-x:hidden;}
+  .disp{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  #app{max-width:460px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding:16px 16px 28px;}
+
+  /* ---- Laptop / wide screens ---- */
+  @media (min-width:720px){
+    html,body{
+      background:
+        radial-gradient(circle at 50% 0%, #1a2027 0%, var(--bg) 55%);
+    }
+    #app{
+      max-width:520px; min-height:auto; margin:40px auto; padding:28px 30px 32px;
+      background:var(--panel); border:1px solid var(--line); border-radius:18px;
+      box-shadow:0 30px 60px -20px rgba(0,0,0,.55);
+    }
+    .statusbar{background:var(--panel-raised);}
+    .panel{background:var(--panel-raised);}
+    .dbtn{cursor:pointer;}
+    .dbtn:hover{border-color:var(--amber);}
+    .g-mid.stop:hover{border-color:var(--red);}
+    .g-mid.hook:hover{border-color:var(--green);}
+    #connectBtn:hover{border-color:var(--amber); filter:brightness(1.1);}
+    .mode-btn:hover{color:var(--text);}
+  }
+
+  /* ---- Status bar ---- */
+  .statusbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; margin-bottom:14px;
+  }
+  .status-left{display:flex; align-items:center; gap:10px;}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background .2s;}
+  .dot.on{background:var(--green); box-shadow:0 0 8px var(--green);}
+  .dot.err{background:var(--red); box-shadow:0 0 8px var(--red);}
+  .status-text{font-size:12.5px;}
+  .status-text .name{color:var(--muted); font-size:11px; display:block; margin-top:1px;}
+  #connectBtn{
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12.5px;
+    background:var(--amber-dim); color:var(--amber); border:1px solid var(--amber);
+    padding:8px 14px; border-radius:7px; cursor:pointer; letter-spacing:.02em;
+  }
+  #connectBtn.connected{background:var(--panel-raised); color:var(--muted); border-color:var(--line);}
+  #connectBtn:active{transform:scale(0.96);}
+
+  header h1{
+    font-size:19px; margin:2px 0 3px; letter-spacing:.01em; font-weight:700;
+  }
+  header .sub{color:var(--muted); font-size:12.5px; margin-bottom:18px;}
+
+  /* ---- Mode selector ---- */
+  .mode-select{
+    display:flex; background:var(--panel); border:1px solid var(--line);
+    border-radius:11px; padding:5px; gap:5px; margin-bottom:18px;
+  }
+  .mode-btn{
+    flex:1; padding:12px 4px; text-align:center; border-radius:8px;
+    background:transparent; border:none; cursor:pointer; color:var(--muted);
+    font-family:'Space Grotesk',sans-serif; transition:all .18s;
+  }
+  .mode-btn .letter{font-size:20px; font-weight:700; display:block;}
+  .mode-btn .label{font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; margin-top:2px; display:block;}
+  .mode-btn.active{background:var(--panel-raised); color:var(--amber); box-shadow:inset 0 0 0 1px var(--line);}
+  .mode-btn[data-mode="A"].active{color:var(--cyan);}
+  .mode-btn[data-mode="L"].active{color:var(--green);}
+  .mode-btn:active{transform:scale(0.97);}
+
+  /* ---- Panel ---- */
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:22px 18px 26px; flex:1; display:flex; flex-direction:column; align-items:center;
+  }
+  .panel-title{font-family:'Space Grotesk'; font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:22px; align-self:flex-start;}
+
+  /* ---- D-pad ---- */
+  .dpad{
+    display:grid; grid-template-columns:78px 78px 78px; grid-template-rows:78px 78px 78px;
+    gap:8px; margin:6px 0 8px;
+  }
+  .dbtn{
+    border-radius:14px; border:1px solid var(--line); background:var(--panel-raised);
+    color:var(--text); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; touch-action:none;
+  }
+  .dbtn svg{width:26px; height:26px; stroke:var(--text); fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;}
+  .dbtn:active, .dbtn.pressed{background:var(--amber-dim); border-color:var(--amber);}
+  .dbtn:active svg, .dbtn.pressed svg{stroke:var(--amber);}
+  .g-fwd{grid-column:2; grid-row:1;}
+  .g-left{grid-column:1; grid-row:2;}
+  .g-mid{grid-column:2; grid-row:2;}
+  .g-right{grid-column:3; grid-row:2;}
+  .g-back{grid-column:2; grid-row:3;}
+
+  .g-mid.stop{background:var(--red-dim); border-color:var(--red);}
+  .g-mid.stop span{color:var(--red); font-family:'Space Grotesk'; font-weight:700; font-size:13px; letter-spacing:.05em;}
+  .g-mid.stop:active{background:var(--red); }
+  .g-mid.stop:active span{color:var(--bg);}
+
+  .g-mid.hook{background:var(--panel-raised); border-color:var(--green); flex-direction:column; gap:2px;}
+  .g-mid.hook svg{stroke:var(--green);}
+  .g-mid.hook span{color:var(--green); font-family:'Space Grotesk'; font-weight:700; font-size:10.5px; letter-spacing:.04em;}
+  .g-mid.hook.engaged{background:var(--green); }
+  .g-mid.hook.engaged svg, .g-mid.hook.engaged span{stroke:var(--bg); color:var(--bg);}
+
+  .hint{color:var(--muted); font-size:11.5px; margin-top:14px; text-align:center; line-height:1.5;}
+  .hint b{color:var(--text);}
+
+  /* ---- Auto panel ---- */
+  .auto-wrap{width:100%; display:flex; flex-direction:column; align-items:center; gap:18px;}
+  .gauge{
+    width:180px; height:180px; border-radius:50%; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 40%, var(--panel-raised), var(--panel));
+    border:1px solid var(--line);
+  }
+  .gauge.triggered{border-color:var(--cyan); box-shadow:0 0 0 3px var(--cyan-dim), 0 0 22px rgba(79,195,232,.35);}
+  .gauge .tval{font-family:'IBM Plex Mono'; font-size:34px; font-weight:600; color:var(--text);}
+  .gauge .tunit{font-family:'IBM Plex Mono'; font-size:13px; color:var(--muted); margin-top:-4px;}
+  .gauge .tlabel{position:absolute; top:22px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-family:'Space Grotesk';}
+
+  .reading-row{display:flex; gap:10px; width:100%;}
+  .reading{
+    flex:1; background:var(--panel-raised); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px;
+  }
+  .reading .rlabel{font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-family:'Space Grotesk'; display:flex; align-items:center; gap:6px;}
+  .reading .rval{font-family:'IBM Plex Mono'; font-size:19px; margin-top:4px; font-weight:500;}
+  .lightbar-track{width:100%; height:5px; background:var(--line); border-radius:3px; margin-top:8px; overflow:hidden;}
+  .lightbar-fill{height:100%; background:var(--amber); width:0%; transition:width .3s;}
+
+  .auto-status{
+    width:100%; padding:14px; border-radius:10px; text-align:center;
+    background:var(--panel-raised); border:1px solid var(--line); transition:all .25s;
+  }
+  .auto-status.moving{background:var(--cyan-dim); border-color:var(--cyan);}
+  .auto-status .astate{font-family:'Space Grotesk'; font-weight:700; font-size:14px; letter-spacing:.03em;}
+  .auto-status.moving .astate{color:var(--cyan);}
+  .auto-status .adetail{font-size:11.5px; color:var(--muted); margin-top:3px;}
+  .countdown-track{width:100%; height:4px; background:var(--line); border-radius:2px; margin-top:10px; overflow:hidden;}
+  .countdown-fill{height:100%; background:var(--cyan); width:0%;}
+
+  .auto-toggle{
+    width:100%; padding:13px; border-radius:10px; border:1px solid var(--amber);
+    background:var(--amber-dim); color:var(--amber); font-family:'Space Grotesk'; font-weight:600;
+    font-size:13px; cursor:pointer; letter-spacing:.03em;
+  }
+  .auto-toggle.active{background:var(--amber); color:var(--bg);}
+  .auto-toggle:active{transform:scale(0.98);}
+
+  .offline-note{color:var(--muted); font-size:11px; text-align:center; margin-top:6px;}
+
+  footer{text-align:center; margin-top:16px; color:var(--muted); font-size:10.5px; letter-spacing:.02em;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="statusbar">
+    <div class="status-left">
+      <div class="dot" id="statusDot"></div>
+      <div class="status-text">
+        <span id="statusMain">Not connected</span>
+        <span class="name" id="statusName">—</span>
+      </div>
+    </div>
+    <button id="connectBtn">Connect</button>
+  </div>
+
+  <header>
+    <h1 class="disp">RC Console</h1>
+    <div class="sub">Bluetooth RC car — R · A · L</div>
+  </header>
+
+  <div class="mode-select">
+    <button class="mode-btn active" data-mode="R">
+      <span class="letter">R</span><span class="label">Manual</span>
+    </button>
+    <button class="mode-btn" data-mode="A">
+      <span class="letter">A</span><span class="label">Auto</span>
+    </button>
+    <button class="mode-btn" data-mode="L">
+      <span class="letter">L</span><span class="label">Hook</span>
+    </button>
+  </div>
+
+  <!-- R: manual drive panel -->
+  <div class="panel" id="panelR">
+    <div class="panel-title">Manual drive</div>
+    <div class="dpad">
+      <button class="dbtn g-fwd" data-cmd="F"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      <button class="dbtn g-left" data-cmd="LT"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <button class="dbtn g-mid stop" data-cmd="S"><span>STOP</span></button>
+      <button class="dbtn g-right" data-cmd="RT"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="dbtn g-back" data-cmd="B"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+    </div>
+    <div class="hint">Press and hold a direction to drive. Release to <b>stop</b> automatically, or tap the center button.</div>
+  </div>
+
+  <!-- A: automatic panel -->
+  <div class="panel" id="panelA" style="display:none;">
+    <div class="panel-title">Automatic mode</div>
+    <div class="auto-wrap">
+      <div class="gauge" id="gauge">
+        <span class="tlabel">Temperature</span>
+        <div style="text-align:center;">
+          <div class="tval mono" id="tempVal">—</div>
+          <div class="tunit">°C</div>
+        </div>
+      </div>
+
+      <div class="reading-row">
+        <div class="reading">
+          <div class="rlabel">☀ Light</div>
+          <div class="rval mono" id="lightVal">— lx</div>
+          <div class="lightbar-track"><div class="lightbar-fill" id="lightBar"></div></div>
+        </div>
+        <div class="reading">
+          <div class="rlabel">🌡 Heat trigger</div>
+          <div class="rval mono" id="heatVal">—</div>
+        </div>
+      </div>
+
+      <div class="auto-status" id="autoStatus">
+        <div class="astate" id="autoState">Waiting for trigger</div>
+        <div class="adetail" id="autoDetail">Moves forward for 5s when light + heat are both detected</div>
+        <div class="countdown-track" id="cdTrack" style="display:none;"><div class="countdown-fill" id="cdFill"></div></div>
+      </div>
+
+      <button class="auto-toggle" id="autoToggle">Enable automatic mode</button>
+      <div class="offline-note">Sensor readings update live over Bluetooth once enabled.</div>
+    </div>
+  </div>
+
+  <!-- L: hook drive panel -->
+  <div class="panel" id="panelL" style="display:none;">
+    <div class="panel-title">Drive + hook</div>
+    <div class="dpad">
+      <button class="dbtn g-fwd" data-cmd="F"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      <button class="dbtn g-left" data-cmd="LT"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <button class="dbtn g-mid hook" id="hookBtn" data-cmd="HK">
+        <svg viewBox="0 0 24 24"><path d="M12 3v7a4 4 0 0 0 8 0M9 21l3-3-3-3"/></svg>
+        <span>HOOK</span>
+      </button>
+      <button class="dbtn g-right" data-cmd="RT"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="dbtn g-back" data-cmd="B"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+    </div>
+    <div class="hint">Drive with the arrows, then tap <b>HOOK</b> over an object to grab it. Tap again to release.</div>
+  </div>
+
+  <footer>ESP32 · BLE UART · commands sent as plain text</footer>
+</div>
+
+<script>
+/* =========================================================================
+   BLUETOOTH PROTOCOL — match this on the ESP32 side
+   -------------------------------------------------------------------------
+   This app uses WEB BLUETOOTH (BLE / GATT), NOT classic SPP.
+   The ESP32 "BluetoothSerial" library (classic Bluetooth) does NOT work
+   with a browser — browsers can only talk BLE. Use BLEDevice / BLEServer
+   with the Nordic UART Service (NUS) below, e.g. an ESP32 BLE UART example.
+
+   Service UUID (NUS):        6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+   RX characteristic (write,  app -> car): 6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+   TX characteristic (notify, car -> app): 6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+
+   COMMANDS SENT (app -> ESP32), plain text, no line ending needed:
+     "MR"  select manual mode (R)
+     "MA"  select automatic mode (A)
+     "ML"  select hook mode (L)
+     "F"   drive forward   (held while button is pressed, in R or L mode)
+     "B"   drive backward
+     "LT"  turn left
+     "RT"  turn right
+     "S"   stop            (R mode center button, and auto-sent on release)
+     "HK"  toggle hook open/close (L mode center button)
+     "AON" enable automatic mode loop (A mode toggle, on)
+     "AOFF" disable automatic mode loop (A mode toggle, off)
+
+   TELEMETRY EXPECTED (ESP32 -> app) as plain text notifications, CSV:
+     "T:<temp_c>,L:<light_raw_0-1023>,M:<0|1>"
+       T = temperature in °C, e.g. T:28.4
+       L = raw light sensor reading, 0-1023
+       M = 1 while the car is auto-moving (the 5s triggered move), else 0
+     Example line: "T:31.2,L:812,M:1"
+   ========================================================================= */
+
+const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write to this
+const NUS_TX      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notifications from this
+
+let device, rxChar, txChar, connected = false;
+let currentMode = 'R';
+let autoEnabled = false;
+let cdTimer = null;
+
+const $ = id => document.getElementById(id);
+
+// ---------- platform / support check ----------
+// Works on: desktop Chrome/Edge (Windows, macOS, Linux/ChromeOS) and
+// Android Chrome (incl. ZTE Nubia phones running stock Chrome).
+// Does NOT work on: Safari (macOS/iOS), Firefox, or inside an embedded
+// iframe/preview — those block the Bluetooth permission outright.
+function checkBluetoothSupport(){
+  if (!navigator.bluetooth) {
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/.test(ua);
+    const isFirefox = /Firefox/.test(ua);
+    let hint = 'Open this page in Chrome or Edge.';
+    if (isIOS) hint = 'iOS Safari/Chrome has no Web Bluetooth support — use an Android phone or a laptop instead.';
+    else if (isFirefox) hint = 'Firefox doesn\'t support Web Bluetooth — open this page in Chrome or Edge.';
+    setStatus('err', 'Bluetooth not available', hint);
+    $('connectBtn').disabled = true;
+    $('connectBtn').style.opacity = '0.5';
+    return false;
+  }
+  return true;
+}
+checkBluetoothSupport();
+
+// Register service worker (enables "Install app" / add to home screen)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed', err));
+  });
+}
+
+// helper: reject a promise if it takes too long
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out ${label} (>${ms/1000}s) — the ESP32 isn't responding`)), ms))
+  ]);
+}
+
+// ---------- connection ----------
+$('connectBtn').addEventListener('click', async () => {
+  if (connected) { disconnect(); return; }
+  if (!checkBluetoothSupport()) return;
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [NUS_SERVICE] }],
+      optionalServices: [NUS_SERVICE]
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    setStatus('', 'Connecting…', device.name || '');
+    const server = await withTimeout(device.gatt.connect(), 8000, 'connecting to GATT server');
+    const service = await withTimeout(server.getPrimaryService(NUS_SERVICE), 8000, 'finding UART service');
+    rxChar = await withTimeout(service.getCharacteristic(NUS_RX), 5000, 'finding RX characteristic');
+    txChar = await withTimeout(service.getCharacteristic(NUS_TX), 5000, 'finding TX characteristic');
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged', onTelemetry);
+
+    connected = true;
+    $('connectBtn').textContent = 'Disconnect';
+    $('connectBtn').classList.add('connected');
+    setStatus('on', 'Connected', device.name || 'RC car');
+    sendCmd('M' + currentMode);
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || 'Try again';
+    if (err.name === 'SecurityError') {
+      msg = 'Open this file directly in a browser tab, not inside an embedded preview.';
+    } else if (err.name === 'NotFoundError') {
+      msg = 'No device selected or none found nearby.';
+    }
+    setStatus('err', 'Connection failed', msg);
+    if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  }
+});
+
+function disconnect(){
+  if (device && device.gatt.connected) device.gatt.disconnect();
+}
+function onDisconnected(){
+  const wasConnected = connected;
+  connected = false;
+  $('connectBtn').textContent = 'Connect';
+  $('connectBtn').classList.remove('connected');
+  // Only show the generic "Not connected" if we were actually connected before.
+  // If we're disconnecting after a failed connection attempt, leave the
+  // error message on screen instead of overwriting it.
+  if (wasConnected) setStatus('', 'Not connected', '—');
+}
+function setStatus(state, main, name){
+  const dot = $('statusDot');
+  dot.className = 'dot' + (state ? ' ' + state : '');
+  $('statusMain').textContent = main;
+  $('statusName').textContent = name;
+}
+
+async function sendCmd(cmd){
+  if (!connected || !rxChar) return;
+  try {
+    await rxChar.writeValue(new TextEncoder().encode(cmd));
+  } catch (e) { console.error('send failed', e); }
+}
+
+// ---------- telemetry ----------
+function onTelemetry(e){
+  const text = new TextDecoder().decode(e.target.value).trim();
+  const parts = {};
+  text.split(',').forEach(p => {
+    const [k, v] = p.split(':');
+    if (k && v !== undefined) parts[k.trim()] = v.trim();
+  });
+  if (parts.T !== undefined) $('tempVal').textContent = parseFloat(parts.T).toFixed(1);
+  if (parts.L !== undefined){
+    const lv = parseInt(parts.L, 10);
+    $('lightVal').textContent = lv + ' lx';
+    $('lightBar').style.width = Math.min(100, (lv/1023)*100) + '%';
+  }
+  if (parts.M !== undefined){
+    const moving = parts.M === '1';
+    setAutoMoving(moving);
+  }
+}
+
+function setAutoMoving(moving){
+  $('gauge').classList.toggle('triggered', moving);
+  $('autoStatus').classList.toggle('moving', moving);
+  if (moving){
+    $('autoState').textContent = 'Triggered — moving forward';
+    $('autoDetail').textContent = 'Light + heat detected. Auto-driving for 5s.';
+    $('cdTrack').style.display = 'block';
+    runCountdown(5000);
+  } else {
+    $('autoState').textContent = autoEnabled ? 'Waiting for trigger' : 'Automatic mode off';
+    $('autoDetail').textContent = 'Moves forward for 5s when light + heat are both detected';
+    $('cdTrack').style.display = 'none';
+    clearInterval(cdTimer);
+  }
+}
+function runCountdown(durationMs){
+  clearInterval(cdTimer);
+  const start = Date.now();
+  $('cdFill').style.width = '0%';
+  cdTimer = setInterval(() => {
+    const pct = Math.min(100, ((Date.now()-start)/durationMs)*100);
+    $('cdFill').style.width = pct + '%';
+    if (pct >= 100) clearInterval(cdTimer);
+  }, 60);
+}
+
+// ---------- mode switching ----------
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    ['R','A','L'].forEach(m => $('panel'+m).style.display = (m === currentMode ? 'flex' : 'none'));
+    sendCmd('M' + currentMode);
+  });
+});
+
+// ---------- R & L: press-and-hold drive buttons ----------
+document.querySelectorAll('.dbtn[data-cmd]').forEach(btn => {
+  const cmd = btn.dataset.cmd;
+  if (cmd === 'S') {
+    btn.addEventListener('click', () => sendCmd('S'));
+    return;
+  }
+  if (cmd === 'HK') {
+    btn.addEventListener('click', () => {
+      const engaged = btn.classList.toggle('engaged');
+      $('hookBtn').querySelector('span').textContent = engaged ? 'RELEASE' : 'HOOK';
+      sendCmd('HK');
+    });
+    return;
+  }
+  // directional: hold to drive, release to stop
+  const start = (ev) => { ev.preventDefault(); btn.classList.add('pressed'); sendCmd(cmd); };
+  const end   = (ev) => { ev.preventDefault(); btn.classList.remove('pressed'); sendCmd('S'); };
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', end);
+  btn.addEventListener('pointerleave', end);
+  btn.addEventListener('pointercancel', end);
+});
+
+// ---------- A: automatic mode toggle ----------
+$('autoToggle').addEventListener('click', () => {
+  autoEnabled = !autoEnabled;
+  $('autoToggle').classList.toggle('active', autoEnabled);
+  $('autoToggle').textContent = autoEnabled ? 'Disable automatic mode' : 'Enable automatic mode';
+  sendCmd(autoEnabled ? 'AON' : 'AOFF');
+  if (!autoEnabled) setAutoMoving(false);
+  else { $('autoState').textContent = 'Waiting for trigger'; }
+});
+</script>
+</body>
+</html>
